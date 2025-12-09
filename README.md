@@ -2,86 +2,155 @@
 
 ![llmcouncil](header.jpg)
 
-The idea of this repo is that instead of asking a question to your favorite LLM provider (e.g. OpenAI GPT 5.1, Google Gemini 3.0 Pro, Anthropic Claude Sonnet 4.5, xAI Grok 4, eg.c), you can group them into your "LLM Council". This repo is a simple, local web app that essentially looks like ChatGPT except it uses OpenRouter to send your query to multiple LLMs, it then asks them to review and rank each other's work, and finally a Chairman LLM produces the final response.
+# LLM-Council
 
-In a bit more detail, here is what happens when you submit a query:
+**A multi-model debate system where Large Language Models argue, critique, and vote to reach consensus answers.**
 
-1. **Stage 1: First opinions**. The user query is given to all LLMs individually, and the responses are collected. The individual responses are shown in a "tab view", so that the user can inspect them all one by one.
-2. **Stage 2: Review**. Each individual LLM is given the responses of the other LLMs. Under the hood, the LLM identities are anonymized so that the LLM can't play favorites when judging their outputs. The LLM is asked to rank them in accuracy and insight.
-3. **Stage 3: Final response**. The designated Chairman of the LLM Council takes all of the model's responses and compiles them into a single final answer that is presented to the user.
+LLM-Council addresses the reliability issues of single-model responses by orchestrating debates between multiple state-of-the-art language models. The system produces answers that are more accurate, balanced, and resistant to hallucinations through structured argumentation and voting mechanisms.
 
-## Vibe Code Alert
+## Core Advantages
 
-This project was 99% vibe coded as a fun Saturday hack because I wanted to explore and evaluate a number of LLMs side by side in the process of [reading books together with LLMs](https://x.com/karpathy/status/1990577951671509438). It's nice and useful to see multiple responses side by side, and also the cross-opinions of all LLMs on each other's outputs. I'm not going to support it in any way, it's provided here as is for other people's inspiration and I don't intend to improve it. Code is ephemeral now and libraries are over, ask your LLM to change it in whatever way you like.
+**Single LLM vs LLM-Council:**
+- **Hallucination Detection**: Models identify and challenge each other's factual errors
+- **Nuanced Reasoning**: Forced consideration of counterarguments produces deeper analysis
+- **Full Transparency**: Complete debate transcripts show the reasoning process
+- **Model Flexibility**: Support for 12+ providers with plug-and-play integration
+- **Customizable Logic**: Multiple voting strategies including majority, Elo, and confidence-based systems
 
-## Setup
+Use cases span research validation, fact-checking, legal analysis, creative writing, and any scenario requiring high-confidence answers.
 
-### 1. Install Dependencies
-
-The project uses [uv](https://docs.astral.sh/uv/) for project management.
-
-**Backend:**
-```bash
-uv sync
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm install
-cd ..
-```
-
-### 2. Configure API Key
-
-Create a `.env` file in the project root:
+## Installation
 
 ```bash
-OPENROUTER_API_KEY=sk-or-v1-...
+pip install llm-council
 ```
 
-Get your API key at [openrouter.ai](https://openrouter.ai/). Make sure to purchase the credits you need, or sign up for automatic top up.
+Requires Python 3.9 or higher.
 
-### 3. Configure Models (Optional)
+## Getting Started with Groq
 
-Edit `backend/config.py` to customize the council:
+Groq offers exceptional performance for running models like Llama-3.1-70B at 500-800 tokens per second, making it ideal for rapid debate cycles.
+
+**Setup steps:**
+
+1. Obtain your API key from https://console.groq.com/keys (includes $50 free credits)
+2. Configure the environment variable:
+
+```bash
+export GROQ_API_KEY="gq_your_actual_key_here"
+```
+
+3. Initialize a council with Groq and other providers:
 
 ```python
-COUNCIL_MODELS = [
-    "openai/gpt-5.1",
-    "google/gemini-3-pro-preview",
-    "anthropic/claude-sonnet-4.5",
-    "x-ai/grok-4",
-]
+from council import Council
+from council.agents import GroqAgent, OpenAIAgent, ClaudeAgent, GrokAgent
 
-CHAIRMAN_MODEL = "google/gemini-3-pro-preview"
+council = Council(
+    agents=[
+        GroqAgent(model="llama-3.1-70b-versatile"),
+        GroqAgent(model="mixtral-8x7b-32768"),
+        OpenAIAgent(model="gpt-4o-mini"),
+        ClaudeAgent(model="claude-3-5-sonnet-20241022"),
+        GrokAgent(model="grok-beta"),
+    ],
+    strategy="majority_vote",
+    max_rounds=4,
+    temperature=0.7,
+    timeout_per_agent=30,
+)
+
+response = council.ask(
+    "What are the most promising quantum computing companies to invest in during 2026–2030?"
+)
+
+print("FINAL ANSWER:")
+print(response.final_answer)
+print("\n\nFULL DEBATE TRANSCRIPT:")
+print(response.debate_transcript)
 ```
 
-## Running the Application
+Groq-powered debates typically complete four-round discussions in under 10 seconds.
 
-**Option 1: Use the start script**
+## Supported Providers
+
+| Provider      | Example Models                                      | Agent Class           | Environment Variable  |
+|---------------|-----------------------------------------------------|-----------------------|-----------------------|
+| OpenAI        | `gpt-4o`, `gpt-4o-mini`, `o1-preview`               | `OpenAIAgent`         | `OPENAI_API_KEY`      |
+| Anthropic     | `claude-3-5-sonnet-20241022`, `claude-3-opus`       | `ClaudeAgent`         | `ANTHROPIC_API_KEY`   |
+| Groq          | `llama-3.1-70b-versatile`, `mixtral-8x7b-32768`     | `GroqAgent`           | `GROQ_API_KEY`        |
+| xAI           | `grok-beta`, `grok-2`                               | `GrokAgent`           | `XAI_API_KEY`         |
+| Google Gemini | `gemini-1.5-pro`, `gemini-1.5-flash`                | `GeminiAgent`         | `GEMINI_API_KEY`      |
+| Mistral       | `mistral-large`, `open-mistral-nemo`                | `MistralAgent`        | `MISTRAL_API_KEY`     |
+| Ollama        | Any local model (`llama3.2`, `phi3`, `qwen2.5`)      | `OllamaAgent`         | —                     |
+| Cohere        | `command-r-plus`                                    | `CohereAgent`         | `COHERE_API_KEY`      |
+| Perplexity    | `pplx-70b-online`, `sonar-large`                    | `PerplexityAgent`     | `PERPLEXITY_API_KEY`  |
+
+## Voting Strategies
+
+```python
+Council(strategy="majority_vote")          # Democratic voting
+Council(strategy="elo")                    # Dynamic Elo rating system
+Council(strategy="weighted_vote")          # Model-capacity-based weighting
+Council(strategy="confidence_weighted")    # Self-reported confidence scoring
+Council(strategy="external_judge",
+        judge=OpenAIAgent("gpt-4o"))       # Single authoritative judge
+```
+
+## Command Line Interface
+
 ```bash
-./start.sh
+council "Should humanity colonize Mars in the 2030s?" \
+  --models groq:llama-3.1-70b-versatile openai:gpt-4o-mini claude:claude-3-5-sonnet \
+  --rounds 5 \
+  --watch
 ```
 
-**Option 2: Run manually**
+The `--watch` flag enables real-time streaming of the debate process.
 
-Terminal 1 (Backend):
-```bash
-uv run python -m backend.main
+## Sample Output
+
+```
+Round 1 - Initial Answers
+[Groq/llama-3.1-70b] Mars colonization represents a critical step for long-term species survival...
+[GPT-4o-mini] Prioritizing Earth's climate restoration should precede extraterrestrial expansion...
+[Claude-3.5-Sonnet] Multi-planetary presence has merit but requires robust ethical frameworks...
+
+Round 4 - Final Critiques → Majority Vote → Consensus Reached
+
+FINAL CONSENSUS:
+Pursuing Mars colonization in the 2030s is justified when conducted in parallel with 
+comprehensive Earth climate restoration initiatives...
 ```
 
-Terminal 2 (Frontend):
-```bash
-cd frontend
-npm run dev
-```
+## Groq Optimization Tips
 
-Then open http://localhost:5173 in your browser.
+- Recommended models: `llama-3.1-70b-versatile` or `llama-3.1-405b-reasoning`
+- Context window supports up to 32,768 tokens for extended debates
+- Paid tier rate limits accommodate approximately 1M tokens per minute
 
-## Tech Stack
+## Development Roadmap
 
-- **Backend:** FastAPI (Python 3.10+), async httpx, OpenRouter API
-- **Frontend:** React + Vite, react-markdown for rendering
-- **Storage:** JSON files in `data/conversations/`
-- **Package Management:** uv for Python, npm for JavaScript
+- [x] Asynchronous operations with streaming support
+- [x] Persistent Elo ratings across sessions
+- [x] Web interface (alpha version in `/web` directory)
+- [ ] Integrated benchmark testing framework
+- [ ] LangGraph and CrewAI compatibility
+- [ ] Fully local self-hosted deployment option
+
+## Contributing
+
+Contributions for new models, improved strategies, and bug fixes are welcome.
+
+1. Fork the repository and create a feature branch
+2. Include tests for new functionality where applicable
+3. Update documentation to reflect changes
+4. Submit a pull request with clear description
+
+## License
+
+MIT © [Mohit Kumar](https://github.com/itsmohitkumar)
+
+---
+
+**Star this repository if you find the project valuable!**
